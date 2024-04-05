@@ -150,22 +150,49 @@ else
     GL_LDLIBS = -lopengl32
   endif
 
-  ifeq ($(origin GL_CFLAGS) $(origin GL_LDLIBS), undefined undefined)
-    ifeq ($(origin PKG_CONFIG), undefined)
-      PKG_CONFIG = $(CROSS_COMPILE)pkg-config
-      ifeq ($(shell which $(PKG_CONFIG) 2>/dev/null),)
-        $(error $(PKG_CONFIG) not found)
-      endif
-    endif
-
-    ifeq ($(shell $(PKG_CONFIG) --modversion gl 2>/dev/null),)
-      $(error No OpenGL development libraries found!)
-    endif
-    GL_CFLAGS += $(shell $(PKG_CONFIG) --cflags gl)
-    GL_LDLIBS +=  $(shell $(PKG_CONFIG) --libs gl)
+# test for essential build dependencies
+ifeq ($(origin PKG_CONFIG), undefined)
+  PKG_CONFIG = $(CROSS_COMPILE)pkg-config
+  ifeq ($(shell which $(PKG_CONFIG) 2>/dev/null),)
+    $(error $(PKG_CONFIG) not found)
   endif
-  CFLAGS += $(GL_CFLAGS)
-  LDLIBS += $(GL_LDLIBS)
+endif
+
+ifeq ($(origin LIBPNG_CFLAGS) $(origin LIBPNG_LDLIBS), undefined undefined)
+  ifeq ($(shell $(PKG_CONFIG) --modversion libpng 2>/dev/null),)
+    $(error No libpng development libraries found!)
+  endif
+  LIBPNG_CFLAGS += $(shell $(PKG_CONFIG) --cflags libpng)
+  LIBPNG_LDLIBS +=  $(shell $(PKG_CONFIG) --libs libpng)
+endif
+CFLAGS += $(LIBPNG_CFLAGS)
+LDLIBS += $(LIBPNG_LDLIBS)
+
+# search for OpenGL libraries
+ifeq ($(VC), 1)
+  GL_CFLAGS += -I/opt/vc/include -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/vmcs_host/linux
+  GL_LDLIBS += -L/opt/vc/lib -lEGL -lbcm_host -lvcos -lvchiq_arm
+  USE_GLES=1
+endif
+ifeq ($(USE_GLES), 1)
+  CFLAGS += -DUSE_GLES
+  GL_LDLIBS += -lGLESv2
+endif
+ifeq ($(OS), OSX)
+  GL_LDLIBS = -framework OpenGL
+endif
+ifeq ($(OS), MINGW)
+  GL_LDLIBS = -lopengl32
+endif
+ifeq ($(origin GL_CFLAGS) $(origin GL_LDLIBS), undefined undefined)
+  ifeq ($(shell $(PKG_CONFIG) --modversion gl 2>/dev/null),)
+    $(error No OpenGL development libraries found!)
+  endif
+  GL_CFLAGS += $(shell $(PKG_CONFIG) --cflags gl)
+  GL_LDLIBS +=  $(shell $(PKG_CONFIG) --libs gl)
+endif
+CFLAGS += $(GL_CFLAGS)
+LDLIBS += $(GL_LDLIBS)
 
   CFLAGS += -pthread
 endif
